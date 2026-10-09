@@ -64,7 +64,7 @@ You can set shared values for a group or different values for individual servers
 
 | Setting in `hosts` | What to change |
 | --- | --- |
-| `my_user` | Set the account you want to create and manage. Required for setup and account configuration. |
+| `my_user` | Set the account you want to create and manage. Required for setup, account configuration, and SSH configuration. |
 | `ansible_user` | Set the existing account Ansible uses to connect. This can differ from `my_user`. |
 | `ansible_port` | Set the SSH port you connect to if it is not 22. The example also uses `server.example.com:2123` to set this port. |
 | `ssh_listen_port` | Can be used to open the server's SSH listening port in UFW or firewalld. Leave it unset to skip this. |
@@ -82,6 +82,8 @@ server.example.com:2123 ansible_user=root ssh_listen_port=22 ssh_port_22=True
 
 These settings add firewall allowances; they do not change the SSH listening port.
 Before enabling UFW, make sure its rules allow the port your server actually uses.
+
+SSH configuration writes a `AllowUsers` block in ssh_config. Make sure that you are not locked out. `root` is included.
 
 ### Your SSH keys
 

@@ -55,16 +55,42 @@
       tags:
         - key
 
-    - name: Set allowed users
-      ansible.builtin.lineinfile:
-        path: /etc/ssh/sshd_config
-        regexp: '^AllowUsers .*'
-        line: AllowUsers root tun-user {{ my_user if my_user is defined }} {{ bak_user if bak_user is defined }}
-        mode: "0644"
-      notify:
-        - Reload ssh
+    - name: Validate and configure allowed SSH users
+      vars:
+        ssh_allowed_users: >-
+          {{ ['root', 'tun-user', my_user | default('', true) | trim]
+             | reject('equalto', '') | unique(case_sensitive=true) | list }}
+        ssh_connection_user: "{{ ansible_user | default(ansible_ssh_user | default('root'), true) }}"
       tags:
         - config
+      block:
+        - name: Validate the required SSH account
+          ansible.builtin.assert:
+            that:
+              - my_user is defined
+              - my_user is string
+              - my_user | trim | length > 0
+              - my_user | trim is match('^\S+$')
+            fail_msg: "Set my_user to a nonempty, single account name before configuring SSH."
+            quiet: true
+
+        - name: Preserve access for the SSH connection account
+          ansible.builtin.assert:
+            that:
+              - ssh_connection_user in ssh_allowed_users
+            fail_msg: "The SSH connection account {{ ssh_connection_user }} must be included in AllowUsers through my_user before configuring SSH."
+            quiet: true
+
+        - name: Set allowed users
+          ansible.builtin.lineinfile:
+            path: /etc/ssh/sshd_config
+            regexp: '^AllowUsers\s+'
+            line: "AllowUsers {{ ssh_allowed_users | join(' ') }}"
+            backup: true
+            validate: /usr/sbin/sshd -t -f %s
+            mode: "0644"
+          notify:
+            - Reload ssh
 
     - name: Check sshd_config.d exists
       ansible.builtin.stat:
