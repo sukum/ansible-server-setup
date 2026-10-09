@@ -1,0 +1,8 @@
+- name: Validate the configured account name
+  ansible.builtin.assert:
+    that:
+      - my_user is defined
+      - my_user is string
+      - my_user | trim | length > 0
+    fail_msg: "Set my_user to a nonempty account name in inventory before running setup or account configuration."
+    quiet: true

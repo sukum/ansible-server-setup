@@ -1,0 +1,2 @@
+{{ my_user }} ALL=(root) NOPASSWD: /usr/local/bin/restic
+Defaults:{{ my_user }} env_keep += "RESTIC_REPOSITORY RESTIC_PROGRESS_FPS RESTIC_PASSWORD"

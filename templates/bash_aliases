@@ -1,0 +1,99 @@
+
+fixssh() {
+  eval $(tmux show-env -s |grep '^SSH_')
+}
+
+alias ll='ls -lhAXF --group-directories-first --color=always'
+alias lss='ls -1spqXF --group-directories-first --block-size=MB --sort=extension --color=always'
+
+alias ports='lsof -iTCP -sTCP:LISTEN -n -P'
+# pid and program
+alias p="ps axo pid,cmd | sed 's/^\\s*\\([0-9]\\+\\)\\s\\+/\\1\\t/g' | grep -v grep | grep"
+alias sqlite3-custom="sqlite3 -column -nullvalue 'NULL' -header"
+
+paths() {
+  local p=${1:-$PATH}
+  echo "$p" | sed 's/:/\n/g'
+}
+
+nh() {
+  nohup "$@" > /dev/null 2>&1 &
+}
+
+reenv() {
+  ssh_reagent
+  eval $(tmux show-environment -s | rg DISPLAY)
+}
+
+ssh_reagent() {
+  for agent in /tmp/ssh-*/agent.*; do
+    export SSH_AUTH_SOCK="$agent"
+    if ssh-add -L > /dev/null 2>&1; then
+      return
+    fi
+    unset SSH_AUTH_SOCK
+  done
+  echo "No valid SSH forwarding socket found." >&2
+}
+
+mkcd() {
+  mkdir -p "$1" && cd "$1" || exit
+}
+
+prependpath() {
+  paths="$1"
+  toadd="$2"
+  case ":$paths:" in
+    *:"$toadd":*)
+      echo "$paths"
+      ;;
+    *)
+      echo "$toadd${paths:+:$paths}"
+      ;;
+  esac
+}
+
+appendpath() {
+  paths="$1"
+  toadd="$2"
+  case ":$paths:" in
+    *:"$toadd":*)
+      echo "$paths"
+      ;;
+    *)
+      echo "${paths:+$paths:}$toadd"
+      ;;
+  esac
+}
+
+# --files: Print the files that ripgrep would search, but don't actually search them.
+rgf() {
+  regex=
+  args=
+  for v in "$@"; do
+    case $v in
+      -*) args+="$v" ;;
+      *) regex="$v" ;;
+    esac
+  done
+  rg --files $args | rg "$regex"
+}
+
+paste() {
+  local file=${1:-/dev/stdin}
+  url="$(curl --data-binary @${file} https://paste.rs)"
+  echo "$url"
+  #echo "$url" | xcp
+}
+
+o() {
+  files="$(fzf --print0 --preview "bat --theme ansi --color always {}")"
+  if [ -z "$files" ]; then
+    return
+  fi
+  echo -n "$files" | xargs -0 -o "$EDITOR"
+}
+
+ps_mem() {
+  ps -eo pid,comm,rss --sort=-rss | awk '$3 > 0 {printf "%-8s %-20s %8.2f MB\n", $1, $2, $3/1024}'
+}

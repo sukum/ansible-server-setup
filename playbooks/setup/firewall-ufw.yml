@@ -1,0 +1,128 @@
+
+    - name: Populate service facts
+      ansible.builtin.service_facts:
+      tags:
+        - always
+
+    - name: No ufw service
+      ansible.builtin.debug:
+        msg: "No ufw service"
+      when: "'ufw.service' not in services"
+
+    - name: Add ufw rules when the service is installed
+      when: "'ufw.service' in services"
+      block:
+        - name: Allow the target SSH listener
+          community.general.ufw:
+            rule: limit
+            port: "{{ ssh_listen_port | string }}"
+            proto: tcp
+            comment: ssh
+          when: ssh_listen_port is defined
+          tags:
+            - config
+            - port
+            - ssh
+
+        - name: Set logging
+          community.general.ufw:
+            logging: 'off'
+          tags:
+            - config
+
+        - name: Rule ssh limit
+          community.general.ufw:
+            rule: limit
+            port: 22
+            proto: tcp
+            comment: ssh
+          tags:
+            - config
+            - port
+            - ssh
+          when: ssh_port_22 is defined and ssh_port_22
+
+        - name: Rule vpn ports for zerotier, wireguard
+          community.general.ufw:
+            rule: allow
+            port: 9993,51820
+            proto: udp
+            comment: vpn ports
+          tags:
+            - config
+            - port
+            - vpn
+
+        - name: Allow my vps's
+          community.general.ufw:
+            rule: allow
+            src: "{{ item.ip }}"
+            interface_in: "{{ item.interface | default(omit) }}"
+            comment: "{{ item.host }}"
+          loop:
+            - { host: 'zerotier vpn', ip: '10.147.0.0/16' }
+            - { host: 'tailscale vpn', ip: '100.64.0.0/10', interface: 'tailscale0' }
+            - { host: 'wireguard vpn', ip: '192.168.0.0/16' }
+            - { host: 'gc', ip: '110.110.110.110' }
+            - { host: 'zerotier vpn', ip: 'fd1d:1234:1234:1234:1234:1200::/88' }
+            - { host: 'zerotier vpn', ip: 'fd09:1234:1234:1234:1234:1200::/88' }
+            - { host: 'wireguard vpn', ip: 'fddd:2c4::/64' }
+            - { host: 'gc', ip: '2602:ffdd:1111:2222::/64' }
+          tags:
+            - config
+            - add
+
+        - name: Deny SMTP outgoing port 25
+          community.general.ufw:
+            rule: deny
+            port: 25
+            direction: out
+            comment: smtp send
+          tags:
+            - config
+            - port
+            - block
+            - outgoing
+
+        - name: Delete SSH rule
+          community.general.ufw:
+            rule: limit
+            port: '22'
+            proto: tcp
+            delete: true
+          when: not ssh_port_22 is defined or not ssh_port_22
+          tags:
+            - never
+            - ufw_delete
+
+        - name: Delete small nat vps from allowed IPs
+          community.general.ufw:
+            rule: allow
+            direction: in
+            src: "{{ item }}"
+            delete: true
+          loop:
+            - 100.100.200.201
+            - 100.100.200.202
+            - 2602:ffff:2222:1111::11:2222
+
+          tags:
+            - never
+            - ufw_delete
+
+        - name: Activate UFW and verify SSH connectivity
+          tags:
+            - never
+            - ufw_enable
+          block:
+            - name: Enable UFW
+              community.general.ufw:
+                state: enabled
+
+        - name: Print messages
+          ansible.builtin.debug:
+            msg:
+              - "All set"
+          tags:
+            - test
+            - debug

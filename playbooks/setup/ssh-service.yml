@@ -1,0 +1,19 @@
+- name: Reset the resolved SSH service name
+  ansible.builtin.set_fact:
+    ssh_service_name: ""
+
+- name: Resolve the installed SSH service for the detected init system
+  ansible.builtin.set_fact:
+    ssh_service_name: "{{ item }}"
+  loop: "{{ ['ssh.service', 'sshd.service'] if ansible_service_mgr == 'systemd' else ['ssh', 'sshd'] }}"
+  when:
+    - ssh_service_name | length == 0
+    - item in ansible_facts.services
+    - ansible_facts.services[item].status | default('unknown') != 'not-found'
+
+- name: Validate the SSH daemon prerequisite
+  ansible.builtin.assert:
+    that:
+      - ssh_service_name | length > 0
+    fail_msg: "Install an SSH daemon managed by {{ ansible_service_mgr }} before configuring SSH. No installed ssh or sshd service was found."
+    quiet: true

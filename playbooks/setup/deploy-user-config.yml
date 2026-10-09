@@ -1,0 +1,178 @@
+
+    - name: Validate required vault variables before account creation
+      ansible.builtin.assert:
+        that:
+          - vault_user_passwd is defined
+          - vault_ssh_key_passphrase is defined
+        fail_msg: "Define vault_user_passwd and vault_ssh_key_passphrase in the encrypted vars/vault file before creating the configured account."
+        success_msg: "Required vault variables are defined."
+        quiet: true
+      tags:
+        - install
+        - user
+
+    - name: Ensure the configured user's primary group exists
+      ansible.builtin.group:
+        name: "{{ my_user }}"
+        state: present
+        gid: "{{ my_user_gid | default(omit) }}"
+      tags:
+        - install
+        - user
+
+    - name: Ensure the configured user exists with its primary group
+      ansible.builtin.user:
+        name: "{{ my_user }}"
+        comment: "my user"
+        uid: "{{ my_user_uid | default(omit) }}"
+        group: "{{ my_user }}"
+        groups: "{{ 'sudo' if ansible_os_family == 'Debian' else 'wheel' }}"
+        append: true
+        password: "{{ user_passwd }}"
+        generate_ssh_key: true
+        ssh_key_file: .ssh/id_ed25519
+        ssh_key_passphrase: "{{ ssh_key_passphrase }}"
+        ssh_key_type: ed25519
+        update_password: on_create
+        shell: /bin/bash
+      tags:
+        - install
+        - user
+
+    - name: Refresh user facts after account creation
+      ansible.builtin.getent:
+        database: passwd
+        split: ':'
+      tags:
+        - install
+        - user
+        - always
+
+    - name: Configure optional sudo and PAM SSH-agent authentication
+      tags:
+        - never
+        - sudo_pam
+      block:
+        - name: Check sudoers.d exists
+          ansible.builtin.stat:
+            path: /etc/sudoers.d
+          register: sudoers_d
+
+        - name: Add ssh_agent env for sudo-pam
+          ansible.builtin.lineinfile:
+            path: /etc/sudoers.d/ssh_agent
+            regexp: '^Defaults    env_keep += "SSH_AUTH_SOCK"'
+            line: 'Defaults    env_keep += "SSH_AUTH_SOCK"'
+            create: true
+            validate: /usr/sbin/visudo -cf %s
+            mode: "0644"
+          when: sudoers_d.stat.exists and sudoers_d.stat.isdir
+
+        - name: Allow ssh key check for sudo using pam
+          ansible.builtin.lineinfile:
+            path: /etc/pam.d/sudo
+            regexp: 'auth       sufficient        pam_ssh_agent_auth.so file=/etc/security/authorized_keys'
+            line: 'auth       sufficient        pam_ssh_agent_auth.so file=/etc/security/authorized_keys'
+
+        - name: Insert key to /etc/security/authorized_keys
+          ansible.builtin.blockinfile:
+            block: "{{ lookup('url', ssh_public_key_url) }}"
+            path: /etc/security/authorized_keys
+            create: true
+            backup: true
+            mode: "0644"
+          when: ssh_public_key_url is defined
+
+    - name: Update .bashrc user
+      ansible.builtin.blockinfile:
+        block: "{{ lookup('ansible.builtin.file', templates_dir + '/bashrc') }}"
+        path: "{{ getent_passwd[my_user][4] }}/.bashrc"
+        owner: "{{ my_user }}"
+        group: "{{ my_user }}"
+        backup: true
+        create: false
+      tags:
+        - bash
+        - alias
+        - bash_alias
+        - never
+
+    - name: Update .bashrc root
+      ansible.builtin.blockinfile:
+        block: "{{ lookup('ansible.builtin.file', templates_dir + '/bashrc') }}"
+        path: "/root/.bashrc"
+        backup: true
+        create: false
+      tags:
+        - bash
+        - alias
+        - bash_alias
+        - never
+
+    - name: Update .bash_aliases user
+      ansible.builtin.blockinfile:
+        block: "{{ lookup('ansible.builtin.file', templates_dir + '/bash_aliases') }}"
+        path: "{{ getent_passwd[my_user][4] }}/.bash_aliases"
+        owner: "{{ my_user }}"
+        group: "{{ my_user }}"
+        backup: true
+        create: true
+        mode: "0644"
+      tags:
+        - bash
+        - alias
+        - bash_alias
+        - never
+
+    - name: Update .bash_aliases root
+      ansible.builtin.blockinfile:
+        block: "{{ lookup('ansible.builtin.file', templates_dir + '/bash_aliases') }}"
+        path: "/root/.bash_aliases"
+        backup: true
+        create: true
+        mode: "0644"
+      tags:
+        - bash
+        - alias
+        - bash_alias
+        - never
+
+    - name: Add systemd bash aliases to .bash_aliases_systemd
+      ansible.builtin.blockinfile:
+        block: "{{ lookup('ansible.builtin.file', templates_dir + '/bash_aliases_systemd') }}"
+        path: "{{ getent_passwd[my_user][4] }}/.bash_aliases_systemd"
+        owner: "{{ my_user }}"
+        group: "{{ my_user }}"
+        backup: true
+        create: true
+        mode: "0644"
+      tags:
+        - bash
+        - alias
+        - bash_alias
+        - systemd
+        - never
+
+    - name: Add systemd bash aliases to .bash_aliases_systemd root
+      ansible.builtin.blockinfile:
+        block: "{{ lookup('ansible.builtin.file', templates_dir + '/bash_aliases_systemd') }}"
+        path: "/root/.bash_aliases_systemd"
+        backup: true
+        create: true
+        mode: "0644"
+      tags:
+        - bash
+        - alias
+        - bash_alias
+        - systemd
+        - never
+
+    - name: Print messages
+      ansible.builtin.debug:
+        msg:
+          - "All set"
+          - "journal file size set to: {{ journal_size if journal_size is defined else '' }}"
+          - "journal file count set to: {{ journal_files_count if journal_files_count is defined else '' }}"
+      tags:
+        - test
+        - debug

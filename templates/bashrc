@@ -1,0 +1,6 @@
+
+if [ -f ~/.bash_aliases_systemd ]; then
+    . ~/.bash_aliases_systemd
+fi
+export EDITOR=vim
+

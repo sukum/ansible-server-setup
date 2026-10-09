@@ -1,0 +1,19 @@
+- name: "User config"
+  hosts: vps
+  user: root
+  vars_files:
+    - ../../vars/vault
+    - ../../vars/vars
+  vars:
+    templates_dir: "{{ playbook_dir }}/../../templates"
+    ansible_ssh_private_key_file: ~/.ssh/ansible
+  pre_tasks:
+    - name: Validate account prerequisites
+      ansible.builtin.import_tasks: "{{ playbook_dir }}/../setup/prerequisites.yml"
+      tags:
+        - always
+  tasks:
+    - name: Run task
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../setup/deploy-user-config.yml"
+      tags:
+        - always

@@ -1,0 +1,21 @@
+- name: Reconfigure - Check values and reconfigure to expected values
+  hosts: vps
+  user: root
+  vars_files:
+    - "{{ playbook_dir }}/../../vars/vars"
+  tasks:
+    - name: Populate service facts
+      ansible.builtin.service_facts:
+      tags:
+        - always
+
+    - name: Stop and disable unwanted services
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../reconfigure/disable_services.yml"
+      tags:
+        - always
+
+    - name: Update ufw rules
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../reconfigure/ufw_rules_update.yml"
+      when: "'ufw.service' in services"
+      tags:
+        - always

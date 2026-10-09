@@ -1,0 +1,106 @@
+    - name: Populate service facts
+      ansible.builtin.service_facts:
+      tags:
+        - always
+        - config
+
+    - name: Resolve SSH service
+      ansible.builtin.import_tasks: ssh-service.yml
+      tags:
+        - always
+
+    - name: Set authorized keys for user taken from url
+      ansible.posix.authorized_key:
+        user: "{{ my_user }}"
+        state: present
+        key: "{{ lookup('url', ssh_allowed_public_keys_my_user, split_lines=False) }}"
+      when:
+        - ssh_allowed_public_keys_my_user is defined
+        - my_user is defined and my_user != ''
+      tags:
+        - key
+
+    - name: Set ansible key for root taken from url
+      ansible.posix.authorized_key:
+        user: root
+        state: present
+        # key: "{{ ssh_public_key_ansible }}"
+        key: "{{ lookup('url', ssh_public_key_ansible, split_lines=False) }}"
+      when:
+        - ssh_public_key_ansible is defined
+        - my_user is not defined or my_user != 'root'
+      tags:
+        - key
+        - ansible_key
+
+    - name: Set ansible key for user taken from url
+      ansible.posix.authorized_key:
+        user: "{{ my_user }}"
+        state: present
+        # key: "{{ ssh_public_key_ansible }}"
+        key: "{{ lookup('url', ssh_public_key_ansible, split_lines=False) }}"
+      when:
+        - ssh_public_key_ansible is defined
+        - my_user is defined and my_user != ''
+      tags:
+        - key
+        - ansible_key
+
+    - name: Set authorized key for root taken from url
+      ansible.posix.authorized_key:
+        user: root
+        state: present
+        key: "{{ lookup('url', ssh_allowed_public_keys_root, split_lines=False) }}"
+      when: ssh_allowed_public_keys_root is defined
+      tags:
+        - key
+
+    - name: Set allowed users
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^AllowUsers .*'
+        line: AllowUsers root tun-user {{ my_user if my_user is defined }} {{ bak_user if bak_user is defined }}
+        mode: "0644"
+      notify:
+        - Reload ssh
+      tags:
+        - config
+
+    - name: Check sshd_config.d exists
+      ansible.builtin.stat:
+        path: /etc/ssh/sshd_config.d
+      register: sshd_config_d
+      tags:
+        - config
+
+    - name: Config file for sshd config
+      ansible.builtin.template:
+        src: "{{ templates_dir }}/sshd_config"
+        dest: /etc/ssh/sshd_config.d/ansible.conf
+        validate: /usr/sbin/sshd -T -f %s -C addr=localhost -C user=root -C host=localhost
+        mode: "0644"
+      when: sshd_config_d.stat.exists and sshd_config_d.stat.isdir
+      notify:
+        - Reload ssh
+      tags:
+        - config
+
+    - name: Insert/Update sshd_config
+      ansible.builtin.blockinfile:
+        block: "{{ lookup('ansible.builtin.file', templates_dir+'/sshd_config') }}"
+        path: /etc/ssh/sshd_config
+        backup: true
+        validate: /usr/sbin/sshd -T -f %s -C addr=localhost -C user=root -C host=localhost
+      when: not sshd_config_d.stat.exists or not sshd_config_d.stat.isdir
+      notify:
+        - Reload ssh
+      tags:
+        - config
+
+    - name: Print messages
+      ansible.builtin.debug:
+        msg:
+          - "All set - {{ my_user if my_user is defined }}"
+      tags:
+        - test
+        - debug

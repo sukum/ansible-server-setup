@@ -1,0 +1,15 @@
+- name: Stop and disable unwanted services (Debian only)
+  when: ansible_facts['os_family'] == 'Debian'
+  service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: no
+  loop:
+    - fwupd.service
+    - fwupd-refresh.service
+    - fwupd-refresh.timer
+    - packagekit.service
+    - multipathd.service
+    - ModemManager.service
+    - udisks2.service
+  failed_when: false

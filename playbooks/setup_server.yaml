@@ -1,0 +1,96 @@
+- name: Set up new server
+  hosts: vps
+  user: root
+  vars_files:
+    - ../vars/vault
+    - ../vars/vars
+  vars:
+    templates_dir: "{{ playbook_dir }}/../templates"
+    setup_dir: "{{ playbook_dir }}/setup"
+  pre_tasks:
+    - name: Validate setup prerequisites
+      ansible.builtin.import_tasks: "{{ playbook_dir }}/setup/prerequisites.yml"
+      tags:
+        - always
+  tasks:
+    - name: Populate service facts
+      ansible.builtin.service_facts:
+      tags:
+        - always
+
+    - name: Install wanted packages
+      ansible.builtin.include_tasks: "{{setup_dir}}/install-programs.yml"
+      tags:
+        - always
+
+    - name: Populate service facts after installation of packages
+      ansible.builtin.service_facts:
+      tags:
+        - always
+
+    - name: Resolve SSH service
+      ansible.builtin.import_tasks: "{{ setup_dir }}/ssh-service.yml"
+      tags:
+        - always
+
+    - name: Configure journald
+      ansible.builtin.include_tasks: "{{ setup_dir }}/journald.yml"
+      when: ansible_service_mgr == 'systemd'
+      tags:
+        - always
+
+    - name: Configure firewall
+      ansible.builtin.include_tasks: "{{setup_dir}}/firewall-ufw.yml"
+      when: "'ufw.service' in services and ansible_os_family == 'Debian'"
+      tags:
+        - always
+
+    - name: Update ufw rules
+      ansible.builtin.include_tasks: "{{setup_dir}}/ufw_rules_update.yml"
+      when: "'ufw.service' in services"
+      tags:
+        - always
+
+    - name: Configure user accounts
+      ansible.builtin.include_tasks: "{{setup_dir}}/deploy-user-config.yml"
+      tags:
+        - always
+
+    - name: Configure ssh
+      ansible.builtin.include_tasks: "{{setup_dir}}/ssh-config.yml"
+      when: ssh_service_name | length > 0
+      tags:
+        - always
+
+    - name: Configure sudoers for restic
+      ansible.builtin.include_tasks: "{{setup_dir}}/sudoers-restic.yml"
+      tags:
+        - always
+
+    - name: Enable bbr
+      ansible.builtin.include_tasks: "{{setup_dir}}/enable_bbr.yml"
+      tags:
+        - always
+
+    - name: Stop and disable unwanted services
+      ansible.builtin.include_tasks: "{{setup_dir}}/disable_services.yml"
+      tags:
+        - always
+
+  handlers:
+    - name: Restart ufw
+      ansible.builtin.service:
+        name: ufw
+        state: restarted
+      when: "'ufw.service' in services"
+
+    - name: Reload ssh
+      ansible.builtin.service:
+        name: "{{ ssh_service_name }}"
+        state: reloaded
+      when: ssh_service_name | default('') | length > 0
+
+    - name: Restart journald
+      ansible.builtin.service:
+        name: systemd-journald
+        state: restarted

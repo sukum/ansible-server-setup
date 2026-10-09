@@ -1,0 +1,16 @@
+
+# Keep the Tailscale range in sync with the firewall allowances.
+Match Address 100.100.100.100,10.147.0.0/24,100.64.0.0/10
+  PermitRootLogin yes
+  PasswordAuthentication yes
+  PubkeyAuthentication yes
+  AllowTcpForwarding yes
+  X11Forwarding yes
+
+
+Match Address fd1d:dddd::/88,2406:dddd::/56
+  PermitRootLogin yes
+  PasswordAuthentication yes
+  PubkeyAuthentication yes
+  AllowTcpForwarding yes
+  X11Forwarding yes

@@ -1,0 +1,54 @@
+- name: Configure journald
+  block:
+
+    - name: Check journald.conf exists
+      ansible.builtin.stat:
+        path: /etc/systemd/journald.conf
+      register: journal_d
+      tags:
+        - config
+        - journald
+
+    - name: Set journal settings
+      ansible.builtin.set_fact:
+        journal_files_count: "{{ 10 if low_mem is defined and low_mem else 100 }}"
+        journal_size: "{{ '10M' if low_mem is defined and low_mem else '80M' }}"
+      when: journal_d.stat.exists and journal_d.stat.isreg
+      tags:
+        - config
+        - journald
+
+    - name: Set journal size
+      ansible.builtin.lineinfile:
+        path: /etc/systemd/journald.conf
+        regexp: '^#?SystemMaxUse='
+        line: SystemMaxUse={{ journal_size }}
+        backup: true
+      when: journal_size is defined
+      notify:
+        - Restart journald
+      tags:
+        - config
+        - journald
+
+    - name: Set journal files count
+      ansible.builtin.lineinfile:
+        path: /etc/systemd/journald.conf
+        regexp: '^#?SystemMaxFiles=.*'
+        line: SystemMaxFiles={{ journal_files_count }}
+      when: journal_files_count is defined
+      notify:
+        - Restart journald
+      tags:
+        - config
+        - journald
+
+    - name: Print messages
+      ansible.builtin.debug:
+        msg:
+          - "All set"
+          - "journal file size set to: {{ journal_size if journal_size is defined else '' }}"
+          - "journal file count set to: {{ journal_files_count if journal_files_count is defined else '' }}"
+      tags:
+        - test
+        - debug

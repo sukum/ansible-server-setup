@@ -1,0 +1,175 @@
+- name: Install OS packages
+  block:
+    - name: Debian based
+      when: ansible_os_family == 'Debian'
+      block:
+        - name: Update apt repo and cache
+          ansible.builtin.apt:
+            update_cache: true
+            cache_valid_time: 432000
+            force_apt_get: true
+          tags:
+            - update
+
+        - name: Install apt packages
+          ansible.builtin.apt:
+            name:
+              - htop
+              - curl
+              - vim
+              - wget
+              - nano
+              - tmux
+              - screen
+              - zip
+              - unzip
+              - bzip2
+              - lzma
+              - rsync
+              - openssl
+              - sysstat
+              - sudo
+              - gnupg2
+              - python3
+              - ufw
+              - musl
+              - libpam-ssh-agent-auth
+            state: present
+          tags:
+            - install
+
+    - name: Redhat based
+      when: ansible_os_family == 'RedHat'
+      block:
+        - name: Install epel 7 key
+          ansible.builtin.rpm_key:
+            state: present
+            key: https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-7
+          when: ansible_distribution == 'CentOS' and ansible_distribution_major_version == '7'
+          tags:
+            - install
+
+        - name: Install epel 7 repo
+          ansible.builtin.yum:
+            name: https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+            state: present
+          when: ansible_distribution == 'CentOS' and ansible_distribution_major_version == '7'
+          tags:
+            - install
+
+        - name: Install epel 8 key
+          ansible.builtin.rpm_key:
+            state: present
+            key: https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-8
+          when: ansible_distribution == 'CentOS' and ansible_distribution_major_version == '8'
+          tags:
+            - install
+
+        - name: Install epel 8 repo
+          ansible.builtin.yum:
+            name: https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+            state: present
+          when: ansible_distribution == 'CentOS' and ansible_distribution_major_version == '8'
+          tags:
+            - install
+
+        - name: Ensure the EPEL repository is enabled
+          ansible.builtin.dnf:
+            name: epel-release
+            state: present
+            update_cache: true
+          when:
+            - ansible_os_family == 'RedHat'
+            - ansible_distribution_major_version|int >= 8
+          tags:
+            - install
+
+        - name: Install yum packages
+          ansible.builtin.yum:
+            name:
+              - htop
+              - curl
+              - vim
+              - wget
+              - nano
+              - tmux
+              - screen
+              - zip
+              - unzip
+              - bzip2
+              - xz
+              - rsync
+              - openssl
+              - sysstat
+              - sudo
+              - gnupg2
+              - python3
+              - reptyr
+              - pam_ssh_agent_auth
+            state: present
+          tags:
+            - install
+
+    - name: Alpine based
+      when: ansible_distribution == 'Alpine'
+      block:
+        - name: Install alpine packages
+          community.general.apk:
+            name:
+              - htop
+              - curl
+              - vim
+              - wget
+              - nano
+              - tmux
+              - screen
+              - zip
+              - unzip
+              - bzip2
+              - xz
+              - rsync
+              - openssl
+              - sysstat
+              - sudo
+              - gnupg
+              - python3
+              - bash
+            update_cache: true
+            state: present
+          tags:
+            - install
+
+- name: Deploy optional downloaded binaries
+  when: github_download_dir is defined
+  tags:
+    - github
+    - install
+  block:
+    - name: Validate the controller binary directory input
+      ansible.builtin.assert:
+        that:
+          - github_download_dir is string
+          - github_download_dir | trim | length > 0
+        fail_msg: "github_download_dir must be a non-empty directory path on the Ansible controller."
+
+    - name: Check the binary directory on the controller
+      ansible.builtin.stat:
+        path: "{{ github_download_dir }}"
+      delegate_to: localhost
+      become: false
+      register: controller_binary_dir
+
+    - name: Require an existing controller binary directory
+      ansible.builtin.assert:
+        that:
+          - controller_binary_dir.stat.exists | default(false)
+          - controller_binary_dir.stat.isdir | default(false)
+        fail_msg: "github_download_dir must refer to an existing directory on the Ansible controller: {{ github_download_dir }}"
+
+    - name: Copy downloaded binaries to remote
+      ansible.builtin.copy:
+        src: "{{ github_download_dir }}"
+        dest: /usr/local/bin/
+        owner: root
+        group: root
+        mode: "0755"

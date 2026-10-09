@@ -1,0 +1,8 @@
+/tmp
+/.ansible-lint
+*.zip
+/tests
+
+# private
+/vars/vault
+/hosts

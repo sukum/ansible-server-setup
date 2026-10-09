@@ -1,0 +1,126 @@
+- name: Talk to all hosts to classify
+  hosts: vps
+  remote_user: root
+  tasks:
+    - name: Classify hosts depending on their OS distribution
+      ansible.builtin.group_by:
+        key: os_{{ ansible_facts['os_family'] }}
+      tags:
+        - always
+
+- name: Configure firewall for debian os family hosts
+  hosts: os_Debian
+  # strategy: free
+  remote_user: root
+  tasks:
+    - name: Run task
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../setup/firewall-ufw.yml"
+      tags:
+        - always
+
+  handlers:
+    - name: Restart ufw
+      ansible.builtin.service:
+        name: ufw
+        state: restarted
+
+
+- name: Configure firewall for redhat family hosts
+  hosts: os_RedHat
+  remote_user: root
+  tasks:
+    - name: Populate service facts
+      ansible.builtin.service_facts:
+      tags:
+        - always
+
+    - name: No firewalld service
+      ansible.builtin.debug:
+        msg: "No firewalld service"
+      when: "'firewalld.service' not in services"
+
+    # - name: services debug
+    #   ansible.builtin.debug:
+    #     msg: "{{ services }}"
+    #   when: "'firewalld.service' not in services"
+    #
+    # - name: End play if firewalld is not running
+    #   meta: end_play
+    #   when: "'firewalld.service' not in services"
+
+    - name: Add firewalld rules when the service is installed
+      when: "'firewalld.service' in services"
+      block:
+        # Allow SSH with rate limiting (port 22) for both IPv4 and IPv6
+        - name: Limit SSH on port 22 for IPv4 and IPv6
+          ansible.posix.firewalld:
+            # port: 22/tcp
+            permanent: true
+            state: enabled
+            immediate: true
+            rich_rule: 'rule family="{{ item }}" service name="ssh" accept limit value="5/m"'
+          loop:
+            - ipv4
+            - ipv6
+          tags:
+            - config
+            - port
+            - ssh
+          when: ssh_port_22 is defined and ssh_port_22
+
+        # Allow SSH with rate limiting (port 2222)
+        - name: Limit SSH on port 2222
+          ansible.posix.firewalld:
+            port: 2222/tcp
+            permanent: true
+            state: enabled
+            immediate: true
+          tags:
+            - config
+            - port
+            - ssh
+
+        # Allow VPN ports for ZeroTier and WireGuard
+        - name: Allow VPN ports
+          ansible.posix.firewalld:
+            port: "{{ item }}"
+            permanent: true
+            state: enabled
+            immediate: true
+          loop:
+            - 9993/udp
+            - 51820/udp
+          tags:
+            - config
+            - port
+            - vpn
+
+        # Allow specific IPs (VPSs), replace dummy IPs below with IPs relevant to you
+        - name: Allow specific VPS IPs
+          ansible.posix.firewalld:
+            source: "{{ item.ip }}"
+            zone: trusted
+            state: enabled
+            permanent: true
+            immediate: true
+          loop:
+            - { host: 'zerotier vpn', ip: '10.147.0.0/16' }
+            - { host: 'tailscale vpn', ip: '100.64.0.0/10' }
+            - { host: 'wireguard vpn', ip: '192.168.0.0/16' }
+            - { host: 'gc', ip: '110.110.110.110' }
+            - { host: 'zerotier vpn', ip: 'fd1d:1234:1234:1234:1234:1200::/88' }
+            - { host: 'zerotier vpn', ip: 'fd09:1234:1234:1234:1234:1200::/88' }
+            - { host: 'wireguard vpn', ip: 'fddd:2c4::/64' }
+            - { host: 'gc', ip: '2602:ffdd:1111:2222::/64' }
+          tags:
+            - config
+            - add
+
+
+  handlers:
+    - name: Reload firewalld
+      ansible.builtin.command:
+        argv:
+          - firewall-cmd
+          - --reload
+      changed_when: true

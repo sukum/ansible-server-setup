@@ -1,0 +1,46 @@
+- name: Populate service facts
+  ansible.builtin.service_facts:
+  tags:
+    - always
+
+- name: No ufw service
+  ansible.builtin.debug:
+    msg: "No ufw service"
+  when: "'ufw.service' not in services"
+
+- name: The ufw rules when the service is installed
+  when: "'ufw.service' in services"
+  block:
+
+    - name: Allow out other vps in
+      community.general.ufw:
+        rule: allow
+        src: "{{ item.ip }}"
+        interface_in: "{{ item.interface | default(omit) }}"
+        comment: "{{ item.host }}"
+      loop:
+            - { host: 'zerotier vpn', ip: '10.147.0.0/16' }
+            - { host: 'tailscale vpn', ip: '100.64.0.0/10', interface: 'tailscale0' }
+            - { host: 'wireguard vpn', ip: '192.168.0.0/16' }
+            - { host: 'gc', ip: '110.110.110.110' }
+            - { host: 'zerotier vpn', ip: 'fd1d:1234:1234:1234:1234:1200::/88' }
+            - { host: 'zerotier vpn', ip: 'fd09:1234:1234:1234:1234:1200::/88' }
+            - { host: 'wireguard vpn', ip: 'fddd:2c4::/64' }
+            - { host: 'gc', ip: '2602:ffdd:1111:2222::/64' }
+
+      tags:
+        - config
+        - add
+
+    - name: Delete any old vps from allowed IPs
+      tags:
+        - never
+        - ufw_delete
+      community.general.ufw:
+        rule: allow
+        direction: in
+        src: "{{ item.ip }}"
+        delete: true
+      loop:
+        - { host: 'gc1', ip: '100.100.50.50' }
+        - { host: 'gc1', ip: '2602:ffff:1111:abcd::/64' }

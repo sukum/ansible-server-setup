@@ -1,0 +1,69 @@
+- name: Attempt BBR setup unless an OpenVZ or LXC guest is confirmed
+  when: >-
+    not (
+      ansible_facts['virtualization_type'] is defined
+      and ansible_facts['virtualization_role'] is defined
+      and ansible_facts['virtualization_type'] in ['openvz', 'lxc']
+      and ansible_facts['virtualization_role'] == 'guest'
+    )
+  block:
+    - name: Check if BBR is already set
+      ansible.builtin.command: sysctl -n net.ipv4.tcp_congestion_control
+      register: bbr_status
+      changed_when: false
+      check_mode: false
+
+    - name: Enable BBR when it is not already set
+      when: bbr_status.stdout != 'bbr'
+      block:
+        - name: Ensure BBR module is loaded
+          community.general.modprobe:
+            name: tcp_bbr
+            state: present
+
+        - name: Add BBR to modules-load.d
+          ansible.builtin.copy:
+            dest: /etc/modules-load.d/bbr.conf
+            content: "tcp_bbr"
+            mode: "0644"
+
+        - name: Set BBR as the TCP congestion control algorithm
+          ansible.posix.sysctl:
+            name: net.ipv4.tcp_congestion_control
+            value: bbr
+            state: present
+            sysctl_set: true
+            reload: true
+
+        - name: Set fq as the default queuing discipline
+          ansible.posix.sysctl:
+            name: net.core.default_qdisc
+            value: fq
+            state: present
+            sysctl_set: true
+            reload: true
+
+        - name: Ensure sysctl file exists
+          ansible.builtin.file:
+            path: /etc/sysctl.d/99-custom-bbr.conf
+            state: touch
+            mode: "0644"
+
+        - name: Persist BBR settings in sysctl.conf
+          ansible.builtin.blockinfile:
+            path: /etc/sysctl.d/99-custom-bbr.conf
+            block: |
+              net.core.default_qdisc=fq
+              net.ipv4.tcp_congestion_control=bbr
+            marker: "# Ansible managed BBR settings"
+            mode: "0644"
+
+        - name: Apply sysctl settings
+          ansible.builtin.command: sysctl -p
+          changed_when: false
+  rescue:
+    - name: Report BBR setup failure and continue the play
+      ansible.builtin.debug:
+        msg:
+          - "BBR setup failed at '{{ ansible_failed_task.name }}'; continuing the play."
+          - "{{ ansible_failed_result }}"

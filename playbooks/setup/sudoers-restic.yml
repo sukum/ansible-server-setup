@@ -1,0 +1,21 @@
+    - name: Check sudoers.d exists
+      ansible.builtin.stat:
+        path: /etc/sudoers.d
+      register: sudoers_d
+      tags:
+        - sudo
+        - restic
+
+    - name: sudoers restic
+      ansible.builtin.template:
+        src: ../templates/sudo_restic
+        dest: /etc/sudoers.d/restic
+        owner: root
+        group: root
+        mode: "0400"
+        validate: "visudo -cf %s"
+      when: sudoers_d.stat.exists and sudoers_d.stat.isdir
+      tags:
+        - sudo
+        - restic
+

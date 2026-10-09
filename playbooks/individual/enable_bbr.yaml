@@ -1,0 +1,8 @@
+---
+- name: Enable BBR on Linux Servers
+  hosts: vps
+  tasks:
+    - name: Run task
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../setup/enable_bbr.yml"
+      tags:
+        - always

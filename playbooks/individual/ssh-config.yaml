@@ -1,0 +1,19 @@
+- name: Configre ssh settings
+  hosts: vps
+  user: root
+  vars:
+    project_root: "{{ playbook_dir }}/../.."
+    templates_dir: "{{ playbook_dir }}/../../templates"
+
+  tasks:
+    - name: Run task
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../setup/ssh-config.yml"
+      tags:
+        - always
+
+  handlers:
+    - name: Reload ssh
+      ansible.builtin.service:
+        name: "{{ ssh_service_name }}"
+        state: reloaded
+      when: ssh_service_name | default('') | length > 0

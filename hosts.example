@@ -1,0 +1,44 @@
+[natvps_small]
+ipv6.example.com
+ipv4.example.com:2345
+
+[natvps_medium]
+example.com
+
+[cloud]
+cloud.example.com:2123 ansible_user=root ansible_become=no
+
+[hdd]
+hdd.example.com:2123
+
+[localvm]
+192.168.11.138
+
+[vps:children]
+natvps_small
+natvps_medium
+cloud
+hdd
+localvm
+
+[all:vars]
+my_user='sukum'
+ansible_connection=ssh
+ansible_user='root'
+ansible_command_timeout=300
+# Set ssh_listen_port per host/group. alternative ssh port in use.
+# comment it out if you don't use an alternate port for ssh
+ssh_listen_port=2222
+ssh_public_key_url="https://public.sukum.net/public.pub"
+ssh_allowed_public_keys_root="https://public.sukum.net/ssh_keys_root"
+ssh_allowed_public_keys_my_user="https://public.sukum.net/ssh_keys"
+ssh_public_key_ansible="https://public.sukum.net/ansible.pub"
+
+[natvps_small:vars]
+# lowend vps. reduce mem where possible - journald
+low_mem=True
+# when port 22 is needed. for nat vps where the provider maps an external port to 22
+ssh_port_22=True
+
+[natvps_medium:vars]
+ssh_port_22=True
