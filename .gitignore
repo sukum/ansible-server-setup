@@ -1,5 +1,4 @@
 /tmp
-/.ansible-lint
 *.zip
 /tests
 
