@@ -67,7 +67,7 @@ You can set shared values for a group or different values for individual servers
 | `my_user` | Set the account you want to create and manage. Required for setup and account configuration. |
 | `ansible_user` | Set the existing account Ansible uses to connect. This can differ from `my_user`. |
 | `ansible_port` | Set the SSH port you connect to if it is not 22. The example also uses `server.example.com:2123` to set this port. |
-| `ssh_listen_port` | Can be used to open an alternate SSH port in UFW. |
+| `ssh_listen_port` | Can be used to open the server's SSH listening port in UFW or firewalld. Leave it unset to skip this. |
 | `ssh_port_22` | Set `True` where port 22 should also be allowed. This matters for servers whose provider forwards an external port to port 22. |
 | `low_mem` | Set `True` to use smaller system logs on servers with limited resources. |
 | `my_user_uid`, `my_user_gid` | Optional numeric account and group IDs. Leave them out to use the system's normal choices. |
@@ -131,7 +131,7 @@ Review these files to match your needs:
 | --- | --- |
 | `playbooks/setup/install-programs.yml` | Add or remove packages for each operating system. |
 | `playbooks/setup/firewall-ufw.yml`, `playbooks/setup/ufw_rules_update.yml`, `playbooks/reconfigure/ufw_rules_update.yml` | Trusted IP addresses and VPN networks. Outgoing port 25 blocked. |
-| `playbooks/individual/firewall.yaml` | Review the Red Hat firewall rules, including the fixed SSH port 2222 and trusted networks. This playbook configures an existing firewall service. I mostly use debian systems and so haven't tested it on firewalld for many changes. |
+| `playbooks/individual/firewall.yaml` | Review the Red Hat firewall rules, `ssh_listen_port`, `ssh_port_22`, and trusted networks. This playbook configures an existing firewall service. I mostly use debian systems and so haven't tested it on firewalld for many changes. |
 | `playbooks/setup/ssh-config.yml`, `templates/sshd_config` | Review allowed accounts, including `tun-user`, and the networks where root and password login are allowed. Keep these networks consistent with the firewall rules. |
 | `playbooks/setup/journald.yml` | Configuring journald storage space for system logs. |
 | `templates/sudo_restic` | Review password-free backup access and the path to restic. I use restic wth sudo to take backups. Remove the restic section from setup if you do not need it. |

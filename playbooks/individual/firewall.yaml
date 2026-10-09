@@ -68,13 +68,13 @@
             - ssh
           when: ssh_port_22 is defined and ssh_port_22
 
-        # Allow SSH with rate limiting (port 2222)
-        - name: Limit SSH on port 2222
+        - name: Allow the target SSH listener
           ansible.posix.firewalld:
-            port: 2222/tcp
+            port: "{{ ssh_listen_port | string }}/tcp"
             permanent: true
             state: enabled
             immediate: true
+          when: ssh_listen_port is defined
           tags:
             - config
             - port
