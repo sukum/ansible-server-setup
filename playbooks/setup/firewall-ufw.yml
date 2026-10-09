@@ -61,7 +61,7 @@
             comment: "{{ item.host }}"
           loop:
             - { host: 'zerotier vpn', ip: '10.147.0.0/16' }
-            - { host: 'tailscale vpn', ip: '100.64.0.0/10', interface: 'tailscale0' }
+            - { host: 'tailscale vpn', ip: '100.64.0.0/10' }
             - { host: 'wireguard vpn', ip: '192.168.0.0/16' }
             - { host: 'gc', ip: '110.110.110.110' }
             - { host: 'zerotier vpn', ip: 'fd1d:1234:1234:1234:1234:1200::/88' }
