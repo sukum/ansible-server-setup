@@ -50,7 +50,6 @@
 
     - name: Configure optional sudo and PAM SSH-agent authentication
       tags:
-        - never
         - sudo_pam
       block:
         - name: Check sudoers.d exists
@@ -96,7 +95,6 @@
         - bash
         - alias
         - bash_alias
-        - never
 
     - name: Update .bashrc root
       ansible.builtin.blockinfile:
@@ -108,7 +106,6 @@
         - bash
         - alias
         - bash_alias
-        - never
 
     - name: Update .bash_aliases user
       ansible.builtin.blockinfile:
@@ -123,7 +120,6 @@
         - bash
         - alias
         - bash_alias
-        - never
 
     - name: Update .bash_aliases root
       ansible.builtin.blockinfile:
@@ -136,7 +132,6 @@
         - bash
         - alias
         - bash_alias
-        - never
 
     - name: Add systemd bash aliases to .bash_aliases_systemd
       ansible.builtin.blockinfile:
@@ -152,7 +147,6 @@
         - alias
         - bash_alias
         - systemd
-        - never
 
     - name: Add systemd bash aliases to .bash_aliases_systemd root
       ansible.builtin.blockinfile:
@@ -166,14 +160,11 @@
         - alias
         - bash_alias
         - systemd
-        - never
 
     - name: Print messages
       ansible.builtin.debug:
         msg:
           - "All set"
-          - "journal file size set to: {{ journal_size if journal_size is defined else '' }}"
-          - "journal file count set to: {{ journal_files_count if journal_files_count is defined else '' }}"
       tags:
         - test
         - debug
