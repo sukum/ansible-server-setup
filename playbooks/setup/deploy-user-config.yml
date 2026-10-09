@@ -71,8 +71,9 @@
         - name: Allow ssh key check for sudo using pam
           ansible.builtin.lineinfile:
             path: /etc/pam.d/sudo
-            regexp: 'auth       sufficient        pam_ssh_agent_auth.so file=/etc/security/authorized_keys'
-            line: 'auth       sufficient        pam_ssh_agent_auth.so file=/etc/security/authorized_keys'
+            regexp: '\s*auth\s*sufficient\s*pam_ssh_agent_auth.so\s*file=/etc/security/authorized_keys\s*'
+            line: 'auth sufficient pam_ssh_agent_auth.so file=/etc/security/authorized_keys'
+            insertbefore: '@include\s*common-auth'
 
         - name: Insert key to /etc/security/authorized_keys
           ansible.builtin.blockinfile:
