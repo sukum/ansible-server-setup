@@ -62,7 +62,7 @@
       when:
         - ansible_os_family == 'Debian'
         - reboot_required_file.stat.exists
-        - inventory_hostname not in groups['hdd']
+        - inventory_hostname not in groups['hdd'] | default([])
 
       tags:
         - reboot
