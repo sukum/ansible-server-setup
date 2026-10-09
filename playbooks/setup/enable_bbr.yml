@@ -21,11 +21,11 @@
             name: tcp_bbr
             state: present
 
-        - name: Add BBR to modules-load.d
-          ansible.builtin.copy:
-            dest: /etc/modules-load.d/bbr.conf
-            content: "tcp_bbr"
-            mode: "0644"
+        # - name: Add BBR to modules-load.d
+        #   ansible.builtin.copy:
+        #     dest: /etc/modules-load.d/bbr.conf
+        #     content: "tcp_bbr"
+        #     mode: "0644"
 
         - name: Set BBR as the TCP congestion control algorithm
           ansible.posix.sysctl:
@@ -43,24 +43,23 @@
             sysctl_set: true
             reload: true
 
-        - name: Ensure sysctl file exists
-          ansible.builtin.file:
-            path: /etc/sysctl.d/99-custom-bbr.conf
-            state: touch
-            mode: "0644"
+        # - name: Ensure sysctl file exists
+        #   ansible.builtin.file:
+        #     path: /etc/sysctl.d/99-custom-bbr.conf
+        #     state: touch
+        #     mode: "0644"
 
-        - name: Persist BBR settings in sysctl.conf
-          ansible.builtin.blockinfile:
-            path: /etc/sysctl.d/99-custom-bbr.conf
-            block: |
-              net.core.default_qdisc=fq
-              net.ipv4.tcp_congestion_control=bbr
-            marker: "# Ansible managed BBR settings"
-            mode: "0644"
+        # - name: Persist BBR settings in sysctl.conf
+        #   ansible.builtin.blockinfile:
+        #     path: /etc/sysctl.d/99-custom-bbr.conf
+        #     block: |
+        #       net.core.default_qdisc=fq
+        #       net.ipv4.tcp_congestion_control=bbr
+        #     mode: "0644"
 
-        - name: Apply sysctl settings
-          ansible.builtin.command: sysctl -p
-          changed_when: false
+        # - name: Apply sysctl settings
+        #   ansible.builtin.command: sysctl -p
+        #   changed_when: false
   rescue:
     - name: Report BBR setup failure and continue the play
       ansible.builtin.debug:
